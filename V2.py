@@ -1,15 +1,18 @@
 import streamlit as st
 
 def main():
-    page = st.sidebar.selectbox("Select a page", ["Application Form", "View Submitted Data"])
-    
-    if page == "Application Form":
-        display_application_form()
-    elif page == "View Submitted Data":
-        display_submitted_data()
-
-def display_application_form():
     st.title("Application Form")
+    
+    # Page navigation
+    page = st.sidebar.selectbox("Page", ("Form", "View Data"))
+    
+    if page == "Form":
+        show_form()
+    elif page == "View Data":
+        show_data()
+
+def show_form():
+    st.subheader("Application Form")
     
     # Paragraph fields
     twitch_name = st.text_input("Twitch Name")
@@ -38,36 +41,27 @@ def display_application_form():
         else:
             # Process the form data (e.g., send it to a backend, store it in a database, etc.)
             # Replace the print statements with your desired processing logic
-            st.session_state.submissions.append({
+            st.session_state.submitted_data = {
                 "Twitch Name": twitch_name,
                 "Discord Name": discord_name,
                 "Reason for application": reason,
                 "Connected Twitch to Discord": connected,
                 "Enabled VODs": enabled_vods,
                 "Twitch Panels": twitch_panels
-            })
+            }
+            st.session_state.form_submitted = True
             st.success("Your application has been submitted successfully!")
 
-def display_submitted_data():
-    st.title("Submitted Data")
+def show_data():
+    st.subheader("Submitted Data")
     
-    # Display the submitted data
-    submissions = st.session_state.submissions
-    if not submissions:
-        st.info("No data submitted yet.")
+    if not hasattr(st.session_state, "form_submitted") or not st.session_state.form_submitted:
+        st.warning("No data has been submitted yet.")
     else:
-        selected_submissions = st.multiselect("Select entries", submissions, format_func=lambda submission: submission["Twitch Name"])
-        if selected_submissions:
-            st.write("Selected Entries:")
-            for submission in selected_submissions:
-                st.write(submission)
-        else:
-            st.write("All Entries:")
-            for submission in submissions:
-                st.write(submission)
+        submitted_data = st.session_state.submitted_data
+        for field, value in submitted_data.items():
+            st.write(f"**{field}:** {value}")
 
 if __name__ == "__main__":
-    st.session_state.submissions = []  # Initialize the list to store the submissions
     main()
 
-    
