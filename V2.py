@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
-import github3
+import requests
 
-# GitHub credentials
-GITHUB_USERNAME = "Tohka_aryani"
-GITHUB_TOKEN = "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"
+GITHUB_API_URL = "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"
 REPO_OWNER = "Tohka_aryani"
 REPO_NAME = "improved-eureka"
-DATA_FILE_PATH = "data.csv"
+FILE_PATH = "data.csv"
 
 def main():
     page = st.sidebar.selectbox("Select a page", ["Application Form", "View Submitted Data"])
@@ -55,30 +53,73 @@ def display_application_form():
                 "Twitch Panels": twitch_panels
             }
             
-            # Save the submission to the GitHub repository
+            # Save the submission to the CSV file on GitHub
             save_submission(submission)
             
             st.success("Your application has been submitted successfully!")
 
 def save_submission(submission):
-    # Create a DataFrame from the submission data
-    df = pd.DataFrame(submission, index=[0])
+    # Load existing data from GitHub
+    existing_data = load_data_from_github()
     
-    # Connect to the GitHub repository
-    gh = github3.login(token=GITHUB_TOKEN)
-    repo = gh.repository(REPO_OWNER, REPO_NAME)
+    # Add the new submission to the existing data
+    existing_data.append(submission)
     
-    # Write the DataFrame to a CSV file
-    with st.spinner("Saving the submission..."):
-        repo.create_file(DATA_FILE_PATH, "Save new submission", df.to_csv(index=False))
+    # Convert the data to a DataFrame
+    df = pd.DataFrame(existing_data)
     
-    st.session_state.submissions = True
+    # Convert the DataFrame to CSV string
+    csv_data = df.to_csv(index=False)
+    
+    # Commit the updated CSV file to GitHub
+    commit_changes(csv_data)
+
+def load_data_from_github():
+    # Get the contents of the data file from GitHub
+    url = f"{GITHUB_API_URL}/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        content = response.json()
+        csv_data = content["content"]
+        data = pd.read_csv(io.BytesIO(base64.b64decode(csv_data)))
+        return data.to_dict("records")
+    else:
+        return []
+
+def commit_changes(csv_data):
+    # Get the current SHA of the file on GitHub
+    url = f"{GITHUB_API_URL}/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+    else:
+        sha = None
+    
+    # Create the commit payload
+    payload = {
+        "message": "Update data.csv",
+        "content": base64.b64encode(csv_data.encode()).decode(),
+        "sha": sha
+    }
+    
+    # Send the commit request to GitHub
+    url = f"{GITHUB_API_URL}/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_ACCESS_TOKEN}"
+    }
+    response = requests.put(url, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        st.session_state.submissions = True
+    else:
+        st.warning("Failed to save the data to GitHub.")
 
 def display_submitted_data():
     st.title("Submitted Data")
     
     # Display the submitted data
-    submissions = load_submissions()
+    submissions = load_data_from_github()
     if not submissions:
         st.info("No data submitted yet.")
     else:
@@ -91,22 +132,6 @@ def display_submitted_data():
             st.write("All Entries:")
             for submission in submissions:
                 st.write(submission)
-
-def load_submissions():
-    try:
-        # Connect to the GitHub repository
-        gh = github3.login(token=GITHUB_TOKEN)
-        repo = gh.repository(REPO_OWNER, REPO_NAME)
-        
-        # Get the contents of the data file
-        data_file = repo.contents(DATA_FILE_PATH)
-        content = data_file.decoded.decode()
-        
-        # Load the CSV data into a DataFrame
-        df = pd.read_csv(pd.compat.StringIO(content))
-        return df.to_dict("records")
-    except github3.exceptions.NotFoundError:
-        return []
 
 if __name__ == "__main__":
     st.session_state.submissions = False  # Initialize the session state
