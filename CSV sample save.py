@@ -16,7 +16,7 @@ if submit:
     df.to_csv('data.csv', index=False)
 
     # Clone GitHub repository
-    git.Repo.clone_from('https://github.com/your_username/your_repository.git', 'local_repo')
+    git.Repo.clone_from('https://github.com/Tohka-aryani/improved-eureka/tree/main', 'local_repo')
 
     # Move CSV to repository folder
     repo_path = 'local_repo'
