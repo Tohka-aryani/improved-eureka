@@ -1,19 +1,24 @@
 import streamlit as st
 import pandas as pd
+import github3
+
+# GitHub credentials
+GITHUB_USERNAME = "Tohka_aryani"
+GITHUB_TOKEN = "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"
+REPO_OWNER = "Tohka_aryani"
+REPO_NAME = "improved-eureka"
+DATA_FILE_PATH = "data.csv"
 
 def main():
-    st.title("Application Form")
+    page = st.sidebar.selectbox("Select a page", ["Application Form", "View Submitted Data"])
     
-    # Page navigation
-    page = st.sidebar.radio("Page", ("Form", "View Data"))
-    
-    if page == "Form":
-        show_application_form()
-    elif page == "View Data":
-        show_data_table()
+    if page == "Application Form":
+        display_application_form()
+    elif page == "View Submitted Data":
+        display_submitted_data()
 
-def show_application_form():
-    st.header("Submit Application")
+def display_application_form():
+    st.title("Application Form")
     
     # Paragraph fields
     twitch_name = st.text_input("Twitch Name")
@@ -40,35 +45,72 @@ def show_application_form():
         elif not agree:
             st.error("You must agree to the Terms and Conditions.")
         else:
-            # Process the form data (e.g., send it to a backend, store it in a database, etc.)
-            # Replace the print statements with your desired processing logic
-            st.session_state.submitted_data = {
+            # Process the form data
+            submission = {
                 "Twitch Name": twitch_name,
                 "Discord Name": discord_name,
-                "Reason for Application": reason,
+                "Reason for application": reason,
                 "Connected Twitch to Discord": connected,
                 "Enabled VODs": enabled_vods,
                 "Twitch Panels": twitch_panels
             }
+            
+            # Save the submission to the GitHub repository
+            save_submission(submission)
+            
             st.success("Your application has been submitted successfully!")
 
-def show_data_table():
-    st.header("Submitted Applications")
+def save_submission(submission):
+    # Create a DataFrame from the submission data
+    df = pd.DataFrame(submission, index=[0])
     
-    # Check if there is submitted data
-    if "submitted_data" not in st.session_state:
-        st.warning("No applications have been submitted yet.")
+    # Connect to the GitHub repository
+    gh = github3.login(token=GITHUB_TOKEN)
+    repo = gh.repository(REPO_OWNER, REPO_NAME)
+    
+    # Write the DataFrame to a CSV file
+    with st.spinner("Saving the submission..."):
+        repo.create_file(DATA_FILE_PATH, "Save new submission", df.to_csv(index=False))
+    
+    st.session_state.submissions = True
+
+def display_submitted_data():
+    st.title("Submitted Data")
+    
+    # Display the submitted data
+    submissions = load_submissions()
+    if not submissions:
+        st.info("No data submitted yet.")
     else:
-        # Get the submitted data
-        data = st.session_state.submitted_data
+        selected_submissions = st.multiselect("Select entries", submissions, format_func=lambda submission: submission["Twitch Name"])
+        if selected_submissions:
+            st.write("Selected Entries:")
+            for submission in selected_submissions:
+                st.write(submission)
+        else:
+            st.write("All Entries:")
+            for submission in submissions:
+                st.write(submission)
+
+def load_submissions():
+    try:
+        # Connect to the GitHub repository
+        gh = github3.login(token=GITHUB_TOKEN)
+        repo = gh.repository(REPO_OWNER, REPO_NAME)
         
-        # Create a DataFrame from the submitted data
-        df = pd.DataFrame([data])
+        # Get the contents of the data file
+        data_file = repo.contents(DATA_FILE_PATH)
+        content = data_file.decoded.decode()
         
-        # Display the data in a table
-        st.dataframe(df)
+        # Load the CSV data into a DataFrame
+        df = pd.read_csv(pd.compat.StringIO(content))
+        return df.to_dict("records")
+    except github3.exceptions.NotFoundError:
+        return []
 
 if __name__ == "__main__":
+    st.session_state.submissions = False  # Initialize the session state
     main()
+
 
 
