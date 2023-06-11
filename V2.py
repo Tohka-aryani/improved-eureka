@@ -1,34 +1,12 @@
 import streamlit as st
 import pandas as pd
 
-def create_database():
-    # Create an empty Pandas DataFrame to store the applications
-    df = pd.DataFrame(columns=["Twitch Name", "Discord Name", "Email", "Reason for Application",
-                               "Uploaded Twitch Panels", "Enabled VODs", "Linked Twitch to Discord"])
-    return df
-
-def save_application(df, twitch_name, discord_name, email, reason, uploaded_panels, enabled_vods, linked_twitch_discord):
-    # Append the submitted application to the DataFrame
-    new_row = {
-        "Twitch Name": twitch_name,
-        "Discord Name": discord_name,
-        "Email": email,
-        "Reason for Application": reason,
-        "Uploaded Twitch Panels": uploaded_panels,
-        "Enabled VODs": enabled_vods,
-        "Linked Twitch to Discord": linked_twitch_discord
-    }
-    df = df.append(new_row, ignore_index=True)
-    return df
+# Create a global DataFrame to store the submitted applications
+applications_df = pd.DataFrame(columns=["Twitch Name", "Discord Name", "Email", "Reason for Application",
+                                        "Uploaded Twitch Panels", "Enabled VODs", "Linked Twitch to Discord"])
 
 def main():
     st.title("Application Form")
-
-    # Create or load the database
-    if 'database' not in st.session_state:
-        st.session_state['database'] = create_database()
-    else:
-        database = st.session_state['database']
 
     # Twitch Name
     twitch_name = st.text_input("Twitch Name")
@@ -48,24 +26,28 @@ def main():
     enabled_vods = st.selectbox("Enabled VODs", ("Yes", "No"))
     linked_twitch_discord = st.selectbox("Linked Twitch to Discord", ("Yes", "No"))
 
+    # Submit button
     if st.button("Submit"):
-        # Save the application to the database
-        database = save_application(database, twitch_name, discord_name, email, reason, uploaded_panels,
-                                    enabled_vods, linked_twitch_discord)
-        # Update the session state
-        st.session_state['database'] = database
-        # Clear the form fields
-        twitch_name, discord_name, email, reason = "", "", "", ""
-        uploaded_panels, enabled_vods, linked_twitch_discord = "No", "No", "No"
+        # Store the submitted application in the DataFrame
+        applications_df.loc[len(applications_df)] = [twitch_name, discord_name, email, reason,
+                                                     uploaded_panels, enabled_vods, linked_twitch_discord]
         st.success("Application submitted successfully!")
 
-    # Second page for viewing the submitted data
+    # Display the submitted applications on a separate page
+    if st.button("View Submitted Applications"):
+        view_applications()
+
+def view_applications():
     st.title("Submitted Applications")
-    if len(database) > 0:
-        st.write(database)
+
+    if applications_df.empty:
+        st.write("No applications submitted yet.")
+    else:
+        st.dataframe(applications_df)
 
 if __name__ == '__main__':
     main()
+
 
 
 
